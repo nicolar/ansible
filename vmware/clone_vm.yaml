@@ -1,0 +1,42 @@
+- hosts: localhost
+  gather_facts: no
+
+  tasks:
+
+    - name: Load secrets
+      include_vars:
+        file: vcsa_secrets.yaml
+        name: vcsa_secrets
+
+    - name:  Clone a virtual machine from Linux template and customize
+      vmware_guest:
+        hostname: "{{ vcsa_secrets.hostname }}"
+        username: "{{ vcsa_secrets.username }}"
+        password: "{{ vcsa_secrets.password }}"
+        validate_certs: no
+        datacenter: "itms1"
+        state: present
+        folder: "Oracle SOA"
+        template: "itms-soa12-dev"
+        name: "{{ item.name }}"
+        cluster: vsan-1
+        networks:
+          - name: "itms-vsan-1-VLAN-2"
+            type: static
+            ip: "{{ item.ip }}"
+            netmask: 255.255.252.0
+            gateway: 10.211.0.1
+        wait_for_ip_address: true
+        customization_spec: RedHat
+      loop:
+        - { name: 'itms-soa12-acc-wls01', ip: '10.211.0.47' }
+        - { name: 'itms-soa12-prd-adm',  ip: '10.211.0.61' }
+        - { name: 'itms-soa12-prd-rt01', ip: '10.211.0.62' }
+        - { name: 'itms-soa12-prd-rt02', ip: '10.211.0.63' }
+        - { name: 'itms-soa12-prd-rt03', ip: '10.211.0.64' }
+        - { name: 'itms-soa12-prd-wl01', ip: '10.211.0.65' }
+        - { name: 'itms-soa12-prd-wl02', ip: '10.211.0.66' }
+        - { name: 'itms-soa12-prd-wl03', ip: '10.211.0.67' }
+        - { name: 'itms-soa12-prd-wt01', ip: '10.211.9.14' }
+        - { name: 'itms-soa12-prd-wt02', ip: '10.211.9.15' }
+        - { name: 'itms-soa12-acc-wt01', ip: '10.211.9.16' }
