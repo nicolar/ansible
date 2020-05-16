@@ -1,4 +1,4 @@
-# Ansible playbook
+# Ansible playbooks
 
 Here a collection of ansible playbooks.
 They are collected in random order.
