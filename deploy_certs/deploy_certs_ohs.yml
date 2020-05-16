@@ -1,0 +1,30 @@
+- hosts: ohs
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: deploy wallet
+      copy:
+        src: /home/ansible/certificato_2019/ohs_keystore/
+        dest: /apps/weblogic/ohs_keystore/
+        follow: yes
+        backup: yes
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: extract username
+      stat:
+        path: /apps/weblogic/weblogic.env
+      register: own
+
+    - name: stop OHS
+      raw: /usr/sbin/runuser -l {{own.stat.pw_name}} -c "opmnctl stopall"
+      register: out
+
+    - debug: var=out.stdout_lines
+
+    - name: start OHS
+      raw: /usr/sbin/runuser -l {{own.stat.pw_name}} -c "opmnctl startall"
+      register: out
+
+    - debug: var=out.stdout_lines

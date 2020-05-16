@@ -1,0 +1,24 @@
+- hosts: dirviewjs
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: deploy certificate
+      copy:
+        src: /home/ansible/certificato_2019/example.com-dirviewjs.crt
+        dest: /apps/dirviewjs/server.crt
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: deploy private key
+      copy:
+        src: /home/ansible/certificato_2019/example.com-decrypted.key
+        dest: /apps/dirviewjs/server.key
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: restart dirviewjs
+      raw: /bin/su -l dirviewjs -c "/apps/dirviewjs/node_modules/pm2/bin/pm2 --no-color restart dirviewjs"
+      register: out
+
+    - debug: var=out.stdout_lines

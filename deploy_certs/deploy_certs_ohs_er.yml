@@ -1,0 +1,25 @@
+- hosts: ohs_er
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: deploy wallet
+      copy:
+        src: /home/ansible/certificato_2019/ohs_keystore/
+        dest: /apps/weblogic/ohs_keystore_er/
+        follow: yes
+        backup: yes
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: stop OHS
+      raw: /usr/sbin/runuser -l $(ps -ef | grep ohs | head -n1 | awk '{print $1}') -c "opmnctl stopall"
+      register: out
+
+    - debug: var=out.stdout_lines
+
+    - name: start OHS
+      raw: /usr/sbin/runuser -l $(ps -ef | grep ohs | head -n1 | awk '{print $1}') -c "opmnctl startall"
+      register: out
+
+    - debug: var=out.stdout_lines

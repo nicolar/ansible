@@ -1,0 +1,32 @@
+- hosts: apache
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+    - name: deploy intermediate
+      copy:
+        src: /home/ansible/certificato_2019/example.com-intermediate.crt
+        dest: /etc/pki/tls/certs/example.com-intermediate.crt
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: deploy certificate
+      copy:
+        src: /home/ansible/certificato_2019/example.com.crt
+        dest: /etc/pki/tls/certs/example.com.crt
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: deploy provate key
+      copy:
+        src: /home/ansible/certificato_2019/example.com-decrypted.key
+        dest: /etc/pki/tls/private/example.com-decrypted.key
+        #owner: foo
+        #group: foo
+        #mode: 0644
+    - name: httpd reload
+      service:
+        name: httpd
+        state: reloaded
+    #- name: riavvio OHS via raw
+      #raw: ""

@@ -1,0 +1,14 @@
+[apache]
+host1
+host2
+host3
+
+[ohs]
+ohs-host1
+ohs-host2
+
+[ohs_er]
+ohs-er-host1
+ohs-er-host2
+ohs-er-host3
+
