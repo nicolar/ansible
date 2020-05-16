@@ -128,7 +128,7 @@
         force: no
     - name: Copy certificate example.com.pem
       copy:
-        src: despar.it.pem
+        src: example.com.pem
         dest: /etc/haproxy/example.com.pem
         backup: no
         owner: root
