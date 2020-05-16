@@ -1,0 +1,226 @@
+- hosts: all
+  remote_user: root
+  gather_facts: no
+
+  tasks:
+
+    # Basics
+    - name: Load secrets
+      include_vars:
+        file: rhsm_secrets.yaml
+        name: rhsm_secrets
+    - name: Red Hat Subscription
+      redhat_subscription:
+        state: present
+        username: "{{ rhsm_secrets.username }}"
+        password: "{{ rhsm_secrets.password }}"
+        auto_attach: true
+    - name: install rpm packages
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - httpd
+        - net-snmp
+        - firewalld
+        - keepalived
+        - haproxy
+        - langpacks-en
+        - glibc-all-langpacks
+        - binutils
+        - ipvsadm
+        - make
+        - telnet
+        - iperf3
+        - nmap
+        - tcpdump
+        - mc
+        - gcc
+        - glibc
+        - glibc-devel
+        - libaio
+        - redhat-lsb
+        - libaio-devel
+        - gcc-c++
+        - wget
+        - curl
+    - name: selinux permissive
+      selinux:
+        policy: targeted
+        state: enforcing
+
+    # Firewalld service check
+    - name: check firewalld vrrp service
+      command: firewall-cmd --get-services
+      register: firewalld_get_services_result
+      ignore_errors: yes
+    #- name: print the firewalld variables
+    #  debug:
+    #    msg:
+    #    - "{{ firewalld_get_services_result.stdout }} find: {{ firewalld_get_services_result.stdout.find('vrrp') }}"
+
+    # Firewalld execution
+    - name: Setting firewalld - srv new
+      command: firewall-cmd --permanent --new-service=vrrp
+      when: firewalld_get_services_result.stdout.find('vrrp') == -1
+    - name: Setting firewalld - srv description
+      command: firewall-cmd --permanent --service=vrrp --set-description="Virtual Router Redundancy Protocol"
+      when: firewalld_get_services_result.stdout.find('vrrp') == -1
+    - name: Setting firewalld - srv short
+      command: firewall-cmd --permanent --service=vrrp --set-short=vrrp
+      when: firewalld_get_services_result.stdout.find('vrrp') == -1
+    - name: Setting firewalld - srv protocol
+      command: firewall-cmd --permanent --service=vrrp --add-protocol=vrrp
+      when: firewalld_get_services_result.stdout.find('vrrp') == -1
+    - name: Setting firewalld - srv destination
+      command: firewall-cmd --permanent --service=vrrp --set-destination=ipv4:224.0.0.18
+      when: firewalld_get_services_result.stdout.find('vrrp') == -1
+    - name: Add vrrp zone
+      firewalld:
+        zone: vrrp
+        permanent: yes
+        state: present
+    - name: Reload firewall rules
+      command: firewall-cmd --reload
+    - name: Add vrrp and ssh services to vrrp zone
+      firewalld:
+        zone: vrrp
+        service: "{{ item }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - vrrp
+        - ssh
+    - name: Add http and https services to default zone
+      firewalld:
+        service: "{{ item }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - http
+        - https
+    - name: Add haproxy stats port 9443/tcp to default zone
+      firewalld:
+        port: 9443/tcp
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: Enable firewalld
+      service:
+        name: firewalld
+        enabled: yes
+        state: started
+
+    # HAproxy
+    - name: Set haproxy_connect_any flag on and keep it persistent across reboots
+      seboolean:
+        name: haproxy_connect_any
+        state: yes
+        persistent: yes
+    - name: Copy haproxy.cfg template
+      copy:
+        src: haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+        backup: yes
+        force: no
+    - name: Copy certificate example.com.pem
+      copy:
+        src: despar.it.pem
+        dest: /etc/haproxy/example.com.pem
+        backup: no
+        owner: root
+        group: root
+        mode: '0600'
+      ignore_errors: yes
+    - name: Set rsyslog for haproxy
+      copy:
+        src: rsyslog_haproxy.conf
+        dest: /etc/rsyslog.d/haproxy.conf
+    - name: Restart rsyslog
+      service:
+        name: rsyslog
+        enabled: yes
+        state: restarted
+    - name: Start haproxy
+      service:
+        name: haproxy
+        enabled: yes
+        state: started
+
+    # Keepalived
+    - name: Copy keepalived.conf template
+      copy:
+        src: keepalived.conf
+        dest: /etc/keepalived/keepalived.conf
+        backup: yes
+        force: no
+    - name: Start keepalived
+      service:
+        name: keepalived
+        enabled: yes
+        state: started
+
+    # maint-http
+    - name: Create maint-http user
+      user:
+        name: maint-http
+        state: present
+        shell: /sbin/nologin
+        create_home: yes
+      register: rc_user
+    - name: Copy maint-http software
+      copy:
+        src: maint-http
+        dest: "{{ rc_user.home }}"
+        backup: yes
+        force: no
+        mode: '0755'
+        owner: maint-http
+    - name: Copy maint-http resources
+      copy:
+        src: html
+        dest: "{{ rc_user.home }}"
+        backup: yes
+        force: no
+        owner: maint-http
+    - name: Allow systemd to run maint-http
+      sefcontext:
+        target: "{{ rc_user.home }}/maint-http"
+        setype: bin_t
+        state: present
+    - name: Apply new SELinux file context to maint-http
+      command: "restorecon -iv {{ rc_user.home }}/maint-http"
+    - name: Copy maint-http systemd unit
+      copy:
+        src: maint-http.service
+        dest: /etc/systemd/system
+        backup: yes
+        force: no
+    - name: Enable maint-http service
+      service:
+        name: maint-http
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # Other
+    - name: Enable SNMP
+      service:
+        name: snmpd
+        enabled: yes
+        state: started
+    - name: set kernel parameter ip_forward
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: yes
+        sysctl_file: /etc/sysctl.d/96-loadbalancer.conf
+    - name: set kernel parameter ip_nonlocal_bind
+      sysctl:
+        name: net.ipv4.ip_nonlocal_bind
+        value: '1'
+        sysctl_set: yes
+        sysctl_file: /etc/sysctl.d/96-loadbalancer.conf
