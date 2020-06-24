@@ -73,9 +73,6 @@
     - name: Setting firewalld - srv protocol
       command: firewall-cmd --permanent --service=vrrp --add-protocol=vrrp
       when: firewalld_get_services_result.stdout.find('vrrp') == -1
-    - name: Setting firewalld - srv destination
-      command: firewall-cmd --permanent --service=vrrp --set-destination=ipv4:224.0.0.18
-      when: firewalld_get_services_result.stdout.find('vrrp') == -1
     - name: Add vrrp zone
       firewalld:
         zone: vrrp
