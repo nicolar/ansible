@@ -51,6 +51,11 @@
         state: enforcing
 
     # Firewalld service check
+    - name: Enable firewalld
+      service:
+        name: firewalld
+        enabled: yes
+        state: started
     - name: check firewalld vrrp service
       command: firewall-cmd --get-services
       register: firewalld_get_services_result
@@ -105,11 +110,8 @@
         permanent: yes
         immediate: yes
         state: enabled
-    - name: Enable firewalld
-      service:
-        name: firewalld
-        enabled: yes
-        state: started
+    - name: Reload firewall rules
+      command: firewall-cmd --reload
 
     # HAproxy
     - name: Set haproxy_connect_any flag on and keep it persistent across reboots
@@ -158,7 +160,7 @@
       service:
         name: keepalived
         enabled: yes
-        state: started
+        state: stopped
 
     # maint-http
     - name: Create maint-http user
