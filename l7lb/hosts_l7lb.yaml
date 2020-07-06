@@ -1,0 +1,41 @@
+# Example:
+webtier_qa:
+  hosts:
+    10.211.0.111: 
+      keepalived_priority: 100
+      keepalived_unicast_peer: 10.211.0.112
+      keepalived_vips:
+        - 10.211.0.110/22
+    10.211.0.112:
+      keepalived_priority: 98
+      keepalived_unicast_peer: 10.211.0.111
+      keepalived_vips:
+        - 10.211.0.110/22
+    10.211.0.121:
+      keepalived_priority: 100
+      keepalived_unicast_peer: 10.211.0.122
+      keepalived_vips:
+        - 10.211.0.120/22
+    10.211.0.122:
+      keepalived_priority: 98
+      keepalived_unicast_peer: 10.211.0.121
+      keepalived_vips:
+        - 10.211.0.120/22
+l7lb_prd_soa:
+  hosts:
+    itms-l7lb-prd-soa-1:
+      keepalived_priority: 100
+      keepalived_unicast_peer: 10.211.5.12
+    itms-l7lb-prd-soa-2:
+      keepalived_priority: 98
+      keepalived_unicast_peer: 10.211.5.11
+  vars:
+    keepalived_vips:
+      - 10.211.5.15/24  !soa12-qa-rt
+      - 10.211.5.16/24  !soa12-qa-wl
+      - 10.211.5.17/24  !soa12-dev
+      - 10.211.5.18/24  !soa12-dev-dh
+      - 10.211.5.19/24  !soa12-acc
+      - 10.211.5.20/24  !soa12-acc-dh
+      - 10.211.5.21/24  !soa12-prd-rt
+      - 10.211.5.22/24  !soa12-prd-wl

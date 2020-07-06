@@ -2,6 +2,10 @@
   remote_user: root
   gather_facts: no
 
+  vars:
+    - keepalived_mail: "{{ inventory_hostname_short }}@example.com"
+    - force_copy_haproxy_cfg: no
+
   tasks:
 
     # Basics
@@ -69,22 +73,30 @@
     - name: Setting firewalld - srv new
       command: firewall-cmd --permanent --new-service=vrrp
       when: firewalld_get_services_result.stdout.find('vrrp') == -1
+      notify:
+        - reload firewall
     - name: Setting firewalld - srv description
       command: firewall-cmd --permanent --service=vrrp --set-description="Virtual Router Redundancy Protocol"
       when: firewalld_get_services_result.stdout.find('vrrp') == -1
+      notify:
+        - reload firewall
     - name: Setting firewalld - srv short
       command: firewall-cmd --permanent --service=vrrp --set-short=vrrp
       when: firewalld_get_services_result.stdout.find('vrrp') == -1
+      notify:
+        - reload firewall
     - name: Setting firewalld - srv protocol
       command: firewall-cmd --permanent --service=vrrp --add-protocol=vrrp
       when: firewalld_get_services_result.stdout.find('vrrp') == -1
+      notify:
+        - reload firewall
     - name: Add vrrp zone
       firewalld:
         zone: vrrp
         permanent: yes
         state: present
-    - name: Reload firewall rules
-      command: firewall-cmd --reload
+      notify:
+        - reload firewall
     - name: Add vrrp and ssh services to vrrp zone
       firewalld:
         zone: vrrp
@@ -95,6 +107,8 @@
       loop:
         - vrrp
         - ssh
+      notify:
+        - reload firewall
     - name: Add http and https services to default zone
       firewalld:
         service: "{{ item }}"
@@ -104,14 +118,16 @@
       loop:
         - http
         - https
+      notify:
+        - reload firewall
     - name: Add haproxy stats port 9443/tcp to default zone
       firewalld:
         port: 9443/tcp
         permanent: yes
         immediate: yes
         state: enabled
-    - name: Reload firewall rules
-      command: firewall-cmd --reload
+      notify:
+        - reload firewall
 
     # HAproxy
     - name: Set haproxy_connect_any flag on and keep it persistent across reboots
@@ -124,7 +140,10 @@
         src: haproxy.cfg
         dest: /etc/haproxy/haproxy.cfg
         backup: yes
-        force: no
+        force: "{{ force_copy_haproxy_cfg }}"
+        validate: /usr/sbin/haproxy -c -f %s
+      notify:
+        - restart haproxy
     - name: Copy certificate example.com.pem
       copy:
         src: example.com.pem
@@ -134,15 +153,19 @@
         group: root
         mode: '0600'
       ignore_errors: yes
+      notify:
+        - restart haproxy
     - name: Set rsyslog for haproxy
       copy:
         src: rsyslog_haproxy.conf
         dest: /etc/rsyslog.d/haproxy.conf
-    - name: Restart rsyslog
+      notify:
+        - restart rsyslog
+    - name: Start rsyslog
       service:
         name: rsyslog
         enabled: yes
-        state: restarted
+        state: started
     - name: Start haproxy
       service:
         name: haproxy
@@ -151,16 +174,19 @@
 
     # Keepalived
     - name: Copy keepalived.conf template
-      copy:
-        src: keepalived.conf
+      template:
+        src: keepalived.conf.j2
         dest: /etc/keepalived/keepalived.conf
         backup: yes
-        force: no
+        force: yes
+        validate: /usr/sbin/keepalived -t -f %s
+      notify:
+        - restart keepalived
     - name: Start keepalived
       service:
         name: keepalived
         enabled: yes
-        state: stopped
+        state: started
 
     # maint-http
     - name: Create maint-http user
@@ -175,16 +201,20 @@
         src: maint-http
         dest: "{{ rc_user.home }}"
         backup: yes
-        force: no
+        force: yes
         mode: '0755'
         owner: maint-http
+      notify:
+        - restart maint-http
     - name: Copy maint-http resources
       copy:
         src: html
         dest: "{{ rc_user.home }}"
         backup: yes
-        force: no
+        force: yes
         owner: maint-http
+      notify:
+        - restart maint-http
     - name: Allow systemd to run maint-http
       sefcontext:
         target: "{{ rc_user.home }}/maint-http"
@@ -197,7 +227,7 @@
         src: maint-http.service
         dest: /etc/systemd/system
         backup: yes
-        force: no
+        force: yes
     - name: Enable maint-http service
       service:
         name: maint-http
@@ -223,3 +253,28 @@
         value: '1'
         sysctl_set: yes
         sysctl_file: /etc/sysctl.d/96-loadbalancer.conf
+
+  # Handlers
+  handlers:
+    - name: reload firewall
+      command: firewall-cmd --reload
+
+    - name: restart rsyslog
+      service:
+        name: rsyslog
+        state: restarted
+
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
+
+    - name: restart keepalived
+      service:
+        name: keepalived
+        state: restarted
+
+    - name: restart maint-http
+      service:
+        name: maint-http
+        state: restarted

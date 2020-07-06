@@ -7,7 +7,7 @@ as a Layer7 loadbalancer based on [HAProxy](https://www.haproxy.org/), [Keepaliv
 ## Usage
 
 ```shell
-ansible-playbook -k --vault-id @prompt -i hosts_l7lb -l webtier_qa l7lb.yaml
+ansible-playbook -k --vault-id @prompt -i hosts_l7lb.yaml -l webtier_qa l7lb.yaml
 ```
 
 ## Description
@@ -37,7 +37,7 @@ The playbook performs several steps:
 
 ## Notes
 
-Please customize keepalived.conf file with your VIPs addresses, customize also haproxy.cfg with your desired settings and backends.
+Please customize the inventory file with your VIPs addresses, customize also haproxy.cfg with your desired settings and backends.
 
 Remember also that a ```rhsm_secrets.yaml``` containing your RH subscription credential is needed.
 
